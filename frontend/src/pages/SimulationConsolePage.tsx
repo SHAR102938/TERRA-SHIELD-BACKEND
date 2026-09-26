@@ -50,7 +50,7 @@ export default function SimulationConsolePage() {
       {/* Action button */}
       <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
         {status === 'idle' && (
-          <button className="btn btn-solar" onClick={startSimulation} style={{ padding: '0.875rem 3rem', fontSize: '1rem' }}>
+          <button className="btn btn-solar" onClick={() => startSimulation(scenario)} style={{ padding: '0.875rem 3rem', fontSize: '1rem' }}>
             <Play size={18} /> Run Simulation
           </button>
         )}

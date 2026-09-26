@@ -69,7 +69,6 @@ def run_analysis(input: AnalysisInput):
     except HTTPException as e:
         raise e
     except Exception as e:
-        # It's good practice to log the error here
-        # import logging
-        # logging.exception("An unexpected error occurred during analysis")
+        import logging
+        logging.exception("An unexpected error occurred during analysis")
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")

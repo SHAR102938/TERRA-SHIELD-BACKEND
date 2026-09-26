@@ -1,9 +1,24 @@
 import { useScenarioStore } from '@/stores/appStore'
-import { Box, Ruler, RotateCw } from 'lucide-react'
+import { Loader2, CheckCircle2 } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { calculateGeometry, type CalculatedGeometry } from '@/lib/api'
 
 export default function GeometryWorkbenchPage() {
   const { scenario, updateGeometry } = useScenarioStore()
   const { length, width, height, roof_type, roof_pitch, orientation } = scenario.geometry
+  const [calcGeo, setCalcGeo] = useState<CalculatedGeometry | null>(null)
+  const [geoLoading, setGeoLoading] = useState(false)
+
+  const recalculate = useCallback(async () => {
+    setGeoLoading(true)
+    try {
+      const res = await calculateGeometry({ length, width, height, roof_pitch, orientation })
+      setCalcGeo(res.calculated)
+    } catch { /* keep showing previous values */ }
+    finally { setGeoLoading(false) }
+  }, [length, width, height, roof_pitch, orientation])
+
+  useEffect(() => { recalculate() }, [recalculate])
 
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
@@ -43,12 +58,17 @@ export default function GeometryWorkbenchPage() {
             <option value="hip">Hip</option>
           </select>
 
-          <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'var(--color-structure-50)', borderRadius: 'var(--radius-sm)' }}>
-            <div style={{ fontSize: '0.625rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-structure-600)' }}>Summary</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
-              <span>Floor: {(length * width).toFixed(1)} m²</span>
-              <span>Volume: {(length * width * height).toFixed(1)} m³</span>
-              <span>Walls: {(2 * (length + width) * height).toFixed(1)} m²</span>
+          <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'var(--color-structure-50)', borderRadius: 'var(--radius-sm)', position: 'relative' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: '0.625rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-structure-600)' }}>Calculated Metrics</div>
+              {geoLoading && <Loader2 size={12} className="animate-spin" color="var(--color-structure-500)" />}
+              {!geoLoading && calcGeo && <CheckCircle2 size={12} color="var(--color-comfort-500)" />}
+            </div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.125rem', opacity: geoLoading ? 0.5 : 1 }}>
+              <span>Floor: {calcGeo ? calcGeo.floor_area.toFixed(1) : (length * width).toFixed(1)} m²</span>
+              <span>Volume: {calcGeo ? calcGeo.volume.toFixed(1) : (length * width * height).toFixed(1)} m³</span>
+              <span>Walls: {calcGeo ? calcGeo.wall_area.toFixed(1) : (2 * (length + width) * height).toFixed(1)} m²</span>
+              <span>Envelope: {calcGeo ? calcGeo.envelope_area.toFixed(1) : '-'} m²</span>
             </div>
           </div>
         </div>

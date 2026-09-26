@@ -6,14 +6,15 @@ def get_climate_data(latitude: float, longitude: float):
     """
     Fetches climate data from NASA POWER API.
     """
-    base_url = "https://power.larc.nasa.gov/api/point"
+    base_url = "https://power.larc.nasa.gov/api/temporal/hourly/point"
     params = {
         "parameters": "T2M,ALLSKY_SFC_SW_DWN,RH2M,WS10M",
         "community": "RE",
         "longitude": longitude,
         "latitude": latitude,
         "format": "JSON",
-        "header": "true" 
+        "start": "20230101",
+        "end": "20230102"
     }
     
     try:
