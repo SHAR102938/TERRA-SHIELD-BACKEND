@@ -108,7 +108,7 @@ def test_honest_status_classification():
 
 
 def test_api_list_benchmarks(client):
-    resp = client.get("/api/v1/validation/benchmarks")
+    resp = client.get("/api/validation/benchmarks")
     assert resp.status_code == 200
     data = resp.json()
     assert "analytical" in data
@@ -119,7 +119,7 @@ def test_api_list_benchmarks(client):
 
 
 def test_api_ansys_status(client):
-    resp = client.get("/api/v1/validation/ansys-status")
+    resp = client.get("/api/validation/ansys-status")
     assert resp.status_code == 200
     data = resp.json()
     assert data["ansys_integrated"] is True
@@ -128,7 +128,7 @@ def test_api_ansys_status(client):
 
 
 def test_api_run_validation_ansys_case(client):
-    resp = client.post("/api/v1/validation", json={"case_id": "ansys_case_a"})
+    resp = client.post("/api/validation", json={"case_id": "ansys_case_a"})
     assert resp.status_code == 200
     data = resp.json()
     assert data["case_id"] == "ansys_case_a"

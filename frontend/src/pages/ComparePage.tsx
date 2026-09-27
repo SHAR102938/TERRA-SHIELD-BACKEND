@@ -80,7 +80,7 @@ export default function ComparePage() {
     const optBFuel = Math.round(optBHeating / 6.0)
     const optBCost = Math.round(envelopeArea * 1250) + 210000
 
-    return [
+    const rawVariants = [
       {
         id: 'base',
         name: 'Unretrofitted Baseline (Stone 300mm)',
@@ -136,10 +136,27 @@ export default function ComparePage() {
         co_risk_score: 18.0,
         est_cost_inr: optBCost,
         layers_summary: '150mm Dual-Density Rockwool + Triple Glazing Low-E',
-        is_winner: true,
-        winner_reason: `Reduces fuel burn by ${Math.round(((baseFuel - optBFuel) / baseFuel) * 100)}% and maintains ${optBComfort}% comfort with zero CO danger.`,
       },
     ]
+
+    // Dynamically calculate the highest performing design across comfort, fuel savings, and CO risk
+    const scored = rawVariants.map((v) => {
+      const fuelSavePct = ((baseFuel - v.fuel_liters) / Math.max(1, baseFuel)) * 100
+      const score = (v.comfort_pct * 0.4) + (Math.max(0, fuelSavePct) * 0.4) + ((100 - v.co_risk_score) * 0.2)
+      return { ...v, score }
+    })
+    const best = [...scored].sort((a, b) => b.score - a.score)[0]
+
+    return scored.map((v) => {
+      const isWinner = v.id === best.id
+      return {
+        ...v,
+        is_winner: isWinner,
+        winner_reason: isWinner
+          ? `Highest overall performance: ${v.comfort_pct}% comfort, ${Math.max(0, Math.round(((baseFuel - v.fuel_liters) / Math.max(1, baseFuel)) * 100))}% fuel reduction, and minimal CO hazard.`
+          : undefined,
+      }
+    })
   }, [scenario, simResults])
 
   const [selectedIds, setSelectedIds] = useState<string[]>(['base', 'active', 'opt-a', 'opt-b'])

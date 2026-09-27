@@ -1,15 +1,15 @@
-"""THERMASHELL Backend — Configuration via pydantic-settings."""
+"""TERRA-SHIELD Backend — Configuration via pydantic-settings."""
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    APP_NAME: str = "THERMASHELL"
+    APP_NAME: str = "TERRA-SHIELD"
     API_VERSION: str = "v1"
     DEBUG: bool = True
 
     # Database
-    DATABASE_URL: str = "sqlite+aiosqlite:///./thermashell.db"
+    DATABASE_URL: str = "sqlite:///./terrashield.db"
 
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"]

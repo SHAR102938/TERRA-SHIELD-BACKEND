@@ -40,8 +40,8 @@ def run_analysis(input: AnalysisInput):
             geometry=geometry_values,
             material=material,
             climate=climate_data,
-            operating_conditions=input.operating_conditions.dict(),
-            simulation_params=input.simulation.dict(),
+            operating_conditions=input.operating_conditions.model_dump(),
+            simulation_params=input.simulation.model_dump(),
         )
         
         if not time_series:

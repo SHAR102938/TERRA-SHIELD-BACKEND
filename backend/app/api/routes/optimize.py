@@ -98,7 +98,7 @@ def optimize(request: OptimizeRequest) -> Dict[str, Any]:
                 "thicknesses":  request.param_ranges.thicknesses,
                 "roof_pitches": request.param_ranges.roof_pitches,
             },
-            weights=request.weights.dict(),
+            weights=request.weights.model_dump(),
         )
 
         return result

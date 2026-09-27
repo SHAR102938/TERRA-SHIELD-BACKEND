@@ -53,10 +53,10 @@ def evaluate_retrofit(request: RetrofitRequest) -> Dict[str, Any]:
         )
 
         results = evaluate_retrofit_options(
-            geometry_params=request.geometry.dict(),
-            location=request.location.dict(),
+            geometry_params=request.geometry.model_dump(),
+            location=request.location.model_dump(),
             climate=climate,
-            operating_conditions=request.operating.dict(),
+            operating_conditions=request.operating.model_dump(),
             simulation_params={
                 "duration_hours": request.simulation_hours,
                 "timestep_hours": 1.0,

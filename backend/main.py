@@ -1,5 +1,5 @@
 """
-THERMASHELL Backend — Minimal FastAPI app with NASA POWER proxy.
+TERRA-SHIELD Backend — Unified FastAPI Application.
 """
 
 import sys
@@ -10,25 +10,21 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-# Add parent and backend dir so thermashell_engine and local modules are importable
+# Add parent and backend dir so modules are importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.dirname(__file__))
 
 from config import settings
 from exceptions import ThermashellError
-from database import init_db
-from api.v1.router import api_router
-
+from app.db.database import engine, Base
+from app.models import db_models
 from app.api.routes import geometry, materials, climate, analysis, projects, optimize, validation, retrofit
-from app.db.database import engine as classic_engine
-from app.models import db_models as classic_models
-
-classic_models.Base.metadata.create_all(bind=classic_engine)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_db()
+    # Initialize unified database schema
+    Base.metadata.create_all(bind=engine)
     yield
 
 
@@ -38,7 +34,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS
+# CORS Configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -57,9 +53,7 @@ async def thermashell_error_handler(request: Request, exc: ThermashellError):
     )
 
 
-app.include_router(api_router, prefix="/api/v1")
-
-# Include classic routers
+# Mount Canonical API Routers
 app.include_router(geometry.router, prefix="/api/geometry", tags=["Geometry"])
 app.include_router(materials.router, prefix="/api/materials", tags=["Materials"])
 app.include_router(climate.router, prefix="/api/climate", tags=["Climate"])

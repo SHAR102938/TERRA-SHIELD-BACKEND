@@ -1,12 +1,14 @@
 """
-Comprehensive API integration tests for FastAPI backend using TestClient.
+Canonical API integration tests for TERRA-SHIELD FastAPI backend.
 Tests:
 - Health check
-- Climate endpoint with fallback / cache
-- Materials catalog and assembly evaluation
-- Simulation execution
-- Preset projects
-- Parametric optimization sweep
+- Climate endpoint with Leh/Jaisalmer/Tawang cache & fallback
+- Materials catalog and material details
+- Geometry calculations with pediment gable walls
+- Analysis execution with diurnal cycle & power-vs-energy integration
+- Projects API
+- Multi-objective Pareto optimization
+- Retrofit evaluation engine
 """
 
 import pytest
@@ -25,105 +27,144 @@ def test_health(client):
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "ok"
-    assert "THERMASHELL" in data["app"]
+    assert "TERRA-SHIELD" in data["app"]
 
 
-def test_climate_power_fallback(client):
-    resp = client.get("/api/v1/climate/power?lat=34.15&lon=77.58&start=20240115&end=20240117")
+def test_climate_leh_cached(client):
+    resp = client.get("/api/climate?latitude=34.15&longitude=77.58")
     assert resp.status_code == 200
     data = resp.json()
-    assert "parameters" in data
-    assert "T2M" in data["parameters"]
+    assert "climate" in data
+    assert "temperature" in data["climate"]
+    assert "solar_radiation" in data["climate"]
 
 
 def test_materials_catalog(client):
-    resp = client.get("/api/v1/materials")
+    resp = client.get("/api/materials")
     assert resp.status_code == 200
     materials = resp.json()
-    assert len(materials) >= 10
+    assert len(materials) >= 6
     names = [m["name"] for m in materials]
-    assert any("Stone" in n for n in names)
-    assert any("Insulation" in n or "EPS" in n for n in names)
+    assert any("Concrete" in n for n in names)
+    assert any("Rock Wool" in n or "PU Foam" in n for n in names)
 
 
-def test_materials_evaluate(client):
+def test_material_by_id(client):
+    resp = client.get("/api/materials/1")
+    assert resp.status_code == 200
+    mat = resp.json()
+    assert mat["id"] == 1
+    assert "name" in mat
+    assert "thermal_conductivity" in mat
+
+
+def test_geometry_calculate(client):
     payload = {
-        "surface_type": "wall",
-        "layers": [
-            {"name": "Plaster", "thickness_mm": 15, "conductivity": 0.72},
-            {"name": "Brick", "thickness_mm": 230, "conductivity": 0.84},
-            {"name": "EPS", "thickness_mm": 100, "conductivity": 0.035},
-            {"name": "Plaster", "thickness_mm": 15, "conductivity": 0.72}
-        ]
+        "geometry_type": "gable_roof",
+        "length": 6.0,
+        "width": 4.0,
+        "height": 3.0,
+        "roof_pitch": 15.0,
+        "orientation": 180.0
     }
-    resp = client.post("/api/v1/materials/evaluate", json=payload)
+    resp = client.post("/api/geometry/calculate", json=payload)
     assert resp.status_code == 200
     data = resp.json()
-    assert data["r_value"] > 2.5
-    assert data["u_value"] < 0.45
+    assert "calculated" in data
+    calc = data["calculated"]
+    assert calc["floor_area"] == 24.0
+    # Pediment included
+    assert calc["wall_area"] > 60.0
 
 
 def test_simulation_run(client):
     payload = {
-        "length_m": 6.0,
-        "width_m": 4.0,
-        "height_m": 3.0,
-        "wall_layers": [
-            {"name": "Plaster", "thickness_mm": 15, "conductivity": 0.72},
-            {"name": "Stone", "thickness_mm": 300, "conductivity": 1.5},
-            {"name": "EPS", "thickness_mm": 100, "conductivity": 0.035}
-        ],
-        "roof_layers": [
-            {"name": "Metal Sheet", "thickness_mm": 2, "conductivity": 50.0},
-            {"name": "XPS", "thickness_mm": 100, "conductivity": 0.034}
-        ],
-        "duration_hours": 24,
-        "base_outdoor_temp_c": -10.0,
-        "hvac_mode": "heated",
-        "target_temp_c": 18.0
+        "geometry": {
+            "geometry_type": "gable_roof",
+            "length": 6.0,
+            "width": 4.0,
+            "height": 3.0,
+            "roof_pitch": 15.0,
+            "orientation": 180.0
+        },
+        "material_id": 1,
+        "location": {"latitude": 34.15, "longitude": 77.58},
+        "operating_conditions": {
+            "target_temperature": 18.0,
+            "initial_indoor_temperature": 10.0,
+            "occupants": 4,
+            "heat_per_person": 75.0,
+            "air_changes_per_hour": 0.5
+        },
+        "simulation": {
+            "duration_hours": 24,
+            "timestep_hours": 1.0
+        },
+        "comfort": {
+            "comfort_band": 2.0
+        }
     }
-    resp = client.post("/api/v1/simulations/run", json=payload)
+    resp = client.post("/api/analysis/run", json=payload)
     assert resp.status_code == 200
     data = resp.json()
-    assert len(data["timestamps"]) == 24
-    assert len(data["indoor_temp_c"]) == 24
-    assert "heat_balance" in data
+    assert "thermal_summary" in data
     assert "comfort" in data
+    assert len(data["time_series"]) == 24
+    summary = data["thermal_summary"]
+    assert "total_heating_load" in summary
+    assert "kerosene_liters" in summary
+    assert "co_risk_score" in summary
 
 
 def test_projects(client):
-    resp = client.get("/api/v1/projects")
+    resp = client.get("/api/projects")
     assert resp.status_code == 200
-    projects = resp.json()
-    assert len(projects) >= 2
-    leh = [p for p in projects if p["id"] == "leh-winter-demo"][0]
-    assert "Leh" in leh["name"]
+    assert isinstance(resp.json(), list)
 
 
-def test_optimization_sweep(client):
+def test_optimization(client):
     payload = {
-        "base_scenario": {
-            "length_m": 6.0,
-            "width_m": 4.0,
-            "height_m": 3.0,
-            "wall_layers": [
-                {"name": "Stone", "thickness_mm": 300, "conductivity": 1.5},
-                {"name": "EPS", "thickness_mm": 80, "conductivity": 0.035}
-            ],
-            "roof_layers": [
-                {"name": "Metal Sheet", "thickness_mm": 2, "conductivity": 50.0},
-                {"name": "XPS", "thickness_mm": 100, "conductivity": 0.034}
-            ],
-            "duration_hours": 24
+        "geometry": {"length": 6.0, "width": 4.0, "height": 3.0},
+        "location": {"latitude": 34.15, "longitude": 77.58},
+        "operating": {
+            "target_temperature": 18.0,
+            "initial_indoor_temperature": 10.0,
+            "occupants": 4,
+            "heat_per_person": 75.0,
+            "air_changes_per_hour": 0.5
         },
-        "insulation_thicknesses_m": [0.05, 0.10],
-        "window_u_values": [5.7, 2.8],
-        "ach_values": [0.3],
-        "max_candidates": 4
+        "comfort_band": 2.0,
+        "simulation_hours": 24,
+        "param_ranges": {
+            "material_ids": [1, 2],
+            "thicknesses": [0.10, 0.20],
+            "roof_pitches": [15.0]
+        },
+        "weights": {
+            "comfort": 0.35,
+            "energy": 0.25,
+            "weight": 0.20,
+            "cost": 0.20
+        }
     }
-    resp = client.post("/api/v1/optimization/sweep", json=payload)
+    resp = client.post("/api/optimize", json=payload)
     assert resp.status_code == 200
     data = resp.json()
-    assert "candidates" in data
-    assert len(data["candidates"]) > 0
-    assert "pareto_optimal" in data
+    assert "ranked_candidates" in data
+    assert len(data["ranked_candidates"]) > 0
+    assert any("is_pareto" in c for c in data["ranked_candidates"])
+
+
+def test_retrofit_evaluation(client):
+    payload = {
+        "geometry": {"length": 6.0, "width": 4.0, "height": 3.0, "roof_pitch": 15.0},
+        "location": {"latitude": 34.15, "longitude": 77.58},
+        "baseline_material_id": 1,
+        "simulation_hours": 24
+    }
+    resp = client.post("/api/retrofit/evaluate", json=payload)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "baseline" in data
+    assert "interventions" in data
+    assert len(data["interventions"]) == 6
