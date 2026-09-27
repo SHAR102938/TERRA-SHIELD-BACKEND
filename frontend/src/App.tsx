@@ -15,6 +15,7 @@ import OptimizePage from './pages/OptimizePage'
 import ValidationPage from './pages/ValidationPage'
 import ReportPage from './pages/ReportPage'
 import SettingsPage from './pages/SettingsPage'
+import RetrofitPage from './pages/RetrofitPage'
 
 export default function App() {
   return (
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="/scenario/:id/results" element={<ResultsPage />} />
         <Route path="/compare" element={<ComparePage />} />
         <Route path="/optimize" element={<OptimizePage />} />
+        <Route path="/retrofit" element={<RetrofitPage />} />
         <Route path="/scenario/:id/validation" element={<ValidationPage />} />
         <Route path="/scenario/:id/report" element={<ReportPage />} />
         <Route path="/settings" element={<SettingsPage />} />

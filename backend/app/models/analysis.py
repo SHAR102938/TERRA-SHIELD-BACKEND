@@ -50,6 +50,17 @@ class ThermalSummary(BaseModel):
     peak_cooling_load_w: float = 0.0
     kerosene_liters: float = 0.0
     kerosene_kg: float = 0.0
+    fuel_cost_inr: float = 0.0
+    liters_saved_vs_baseline: float = 0.0
+    percentage_fuel_reduction: float = 0.0
+    convoy_drums_saved: float = 0.0
+    convoy_trucks_saved: float = 0.0
+    co_risk_score: float = 0.0
+    co_risk_level: str = "LOW"
+    co_risk_description: str = ""
+    condensation_risk: bool = False
+    dew_point_c: float = 0.0
+    min_inner_surface_temp_c: float = 0.0
 
 class ComfortResults(BaseModel):
     score: float

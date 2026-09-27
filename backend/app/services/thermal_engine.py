@@ -108,6 +108,7 @@ def run_thermal_simulation(
     # 4. Operating Conditions
     occ = operating_conditions.get("occupants", 0)
     hpp = operating_conditions.get("heat_per_person", 0)
+    metabolic_rate_w = float(hpp) if float(hpp) > 0 else 75.0
     ach = operating_conditions.get("air_changes_per_hour", 0.0)
     target_temp = operating_conditions.get("target_temperature", 18.0)
     
@@ -116,7 +117,7 @@ def run_thermal_simulation(
         envelope=env,
         climate=climate_ts,
         occupants=occ,
-        metabolic_rate_w=hpp,
+        metabolic_rate_w=metabolic_rate_w,
         internal_gains_w=0.0,
         target_temp_c=target_temp,
         comfort_band_c=2.0,
@@ -131,8 +132,11 @@ def run_thermal_simulation(
     
     # 6. Reformat to classic list-of-dicts
     time_series = []
+    pmv_val = result.comfort.pmv_mean if result.comfort else 0.0
+    ppd_val = result.comfort.ppd_mean if result.comfort else 0.0
     for i in range(num_timesteps):
         hour_val = (i + 1) * timestep_hours
+        hvac_w = result.q_hvac[i] if i < len(result.q_hvac) else 0.0
         time_series.append({
             "hour": hour_val,
             "outdoor_temperature": result.outdoor_temp_c[i],
@@ -146,10 +150,10 @@ def run_thermal_simulation(
             "conduction_floor_loss": result.q_conduction_floor[i],
             "ventilation_loss": result.q_ventilation[i],
             "internal_heat_gain": result.q_internal[i],
-            "pmv": result.pmv[i] if result.pmv else 0.0,
-            "ppd": result.ppd[i] if result.ppd else 0.0,
-            "heating_load_w": result.q_hvac_heating[i],
-            "cooling_load_w": result.q_hvac_cooling[i],
+            "pmv": pmv_val,
+            "ppd": ppd_val,
+            "heating_load_w": max(0.0, hvac_w),
+            "cooling_load_w": max(0.0, -hvac_w),
         })
         
     return time_series

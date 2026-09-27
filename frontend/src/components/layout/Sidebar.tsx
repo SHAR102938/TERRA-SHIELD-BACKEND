@@ -3,7 +3,7 @@ import { useUIStore } from '@/stores/appStore'
 import {
   LayoutDashboard, MapPin, Sun, Box, Layers, Wind, Thermometer,
   Play, BarChart3, GitCompare, Target, CheckCircle2, FileText,
-  Settings, ChevronLeft, ChevronRight,
+  Settings, ChevronLeft, ChevronRight, Wrench,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -23,6 +23,7 @@ const NAV_ITEMS = [
     { to: '/scenario/demo-leh-001/results', icon: BarChart3, label: 'Results', color: 'var(--color-solar-500)' },
     { to: '/compare', icon: GitCompare, label: 'Compare', color: 'var(--color-structure-500)' },
     { to: '/optimize', icon: Target, label: 'Optimize', color: 'var(--color-comfort-600)' },
+    { to: '/retrofit', icon: Wrench, label: 'Retrofit Advisory', color: 'var(--color-heat-600)' },
     { to: '/scenario/demo-leh-001/validation', icon: CheckCircle2, label: 'Validation', color: 'var(--color-comfort-500)' },
     { to: '/scenario/demo-leh-001/report', icon: FileText, label: 'Report', color: 'var(--color-text-secondary)' },
   ]},

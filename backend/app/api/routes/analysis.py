@@ -52,7 +52,11 @@ def run_analysis(input: AnalysisInput):
         
         # 6. Fuel Model
         heating_kwh = (thermal_summary.get("total_heating_load", 0.0) or 0.0) / 1000.0
-        fuel_data = calculate_bukhari_fuel(heating_kwh)
+        fuel_data = calculate_bukhari_fuel(
+            heating_energy_kwh=heating_kwh,
+            burn_hours=float(input.simulation.duration_hours),
+            ach=float(input.operating_conditions.air_changes_per_hour),
+        )
         thermal_summary.update(fuel_data)
         
         comfort_results = calculate_comfort_score(

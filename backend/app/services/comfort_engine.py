@@ -103,4 +103,25 @@ def summarize_simulation_results(time_series: list):
         "peak_heating_load_w": max(s.get("heating_load_w", 0) for s in time_series) if time_series else 0.0,
         "peak_cooling_load_w": max(s.get("cooling_load_w", 0) for s in time_series) if time_series else 0.0,
     }
+
+    # Moisture & Dew Point Calculation (Magnus-Tetens formula)
+    # Average indoor conditions with typical occupancy humidity (~50-80% RH)
+    import math
+    avg_t = summary["average_indoor_temperature"]
+    rh = 50.0
+    if time_series and "relative_humidity" in time_series[0]:
+        rh = sum(s.get("relative_humidity", 50.0) for s in time_series) / len(time_series)
+    
+    a, b = 17.27, 237.7
+    clamped_rh = max(5.0, min(99.0, rh))
+    alpha = ((a * avg_t) / (b + avg_t)) + math.log(clamped_rh / 100.0)
+    dew_point = round((b * alpha) / (a - alpha), 2)
+    
+    min_surface_temp = min(summary["min_wall_temperature"], summary["min_roof_temperature"])
+    condensation_risk = min_surface_temp <= dew_point
+
+    summary["dew_point_c"] = dew_point
+    summary["min_inner_surface_temp_c"] = round(min_surface_temp, 2)
+    summary["condensation_risk"] = condensation_risk
+
     return summary

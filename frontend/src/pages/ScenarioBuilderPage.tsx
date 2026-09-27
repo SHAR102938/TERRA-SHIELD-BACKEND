@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useScenarioStore, useUIStore } from '@/stores/appStore'
-import { MapPin, Ruler, Layers, Wind, Target, Play, Check, Info, ChevronDown, ChevronUp } from 'lucide-react'
+import { MapPin, Ruler, Layers, Wind, Target, Play, Check, Info, ChevronDown, ChevronUp, BookOpen } from 'lucide-react'
+import TerrainJustificationModal from '@/components/TerrainJustificationModal'
 
 const WIZARD_STEPS = [
   { key: 'site', label: 'Site', icon: MapPin, color: 'var(--color-climate-600)' },
@@ -49,6 +50,7 @@ export default function ScenarioBuilderPage() {
   const { scenario, updateLocation, updateGeometry, updateOperating, applyPreset } = useScenarioStore()
   const { activeWizardStep, setActiveWizardStep } = useUIStore()
   const [presetBanner, setPresetBanner] = useState<string | null>(null)
+  const [showJustification, setShowJustification] = useState(false)
 
   const handleCitySelect = (city: typeof CITY_PRESETS[0]) => {
     updateLocation({ name: city.name, latitude: city.lat, longitude: city.lon, elevation: city.elev, climate_zone: city.zone })
@@ -98,12 +100,21 @@ export default function ScenarioBuilderPage() {
 
       {/* Preset banner */}
       {presetBanner && (
-        <div className="banner banner-info" style={{ marginBottom: '1rem' }}>
+        <div className="banner banner-info" style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <Info size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
           <span>{presetBanner}</span>
-          <button className="btn-ghost" style={{ marginLeft: 'auto', fontSize: '0.75rem' }} onClick={() => setPresetBanner(null)}>Dismiss</button>
+          <button 
+            className="btn btn-outline" 
+            style={{ marginLeft: 'auto', fontSize: '0.75rem', padding: '0.2rem 0.6rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }} 
+            onClick={() => setShowJustification(true)}
+          >
+            <BookOpen size={12} /> Justification Sheet
+          </button>
+          <button className="btn-ghost" style={{ fontSize: '0.75rem' }} onClick={() => setPresetBanner(null)}>Dismiss</button>
         </div>
       )}
+
+      <TerrainJustificationModal isOpen={showJustification} onClose={() => setShowJustification(false)} />
 
       {/* 3-column layout */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 0.8fr', gap: '1.25rem', alignItems: 'start' }}>

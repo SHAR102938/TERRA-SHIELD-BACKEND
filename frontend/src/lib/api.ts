@@ -93,9 +93,31 @@ export interface ThermalSummary {
   min_roof_temperature: number
   max_roof_temperature: number
   total_conduction_loss: number
+  total_conduction_walls?: number
+  total_conduction_roof?: number
+  total_conduction_floor?: number
   total_solar_gain: number
   total_internal_heat_gain: number
   total_ventilation_loss: number
+  total_heating_load?: number
+  total_cooling_load?: number
+  average_pmv?: number
+  average_ppd?: number
+  peak_heating_load_w?: number
+  peak_cooling_load_w?: number
+  kerosene_liters?: number
+  kerosene_kg?: number
+  fuel_cost_inr?: number
+  liters_saved_vs_baseline?: number
+  percentage_fuel_reduction?: number
+  convoy_drums_saved?: number
+  convoy_trucks_saved?: number
+  co_risk_score?: number
+  co_risk_level?: string
+  co_risk_description?: string
+  condensation_risk?: boolean
+  dew_point_c?: number
+  min_inner_surface_temp_c?: number
 }
 
 export interface ComfortResults {
@@ -113,8 +135,15 @@ export interface TimeSeriesPoint {
   indoor_temperature: number
   solar_gain: number
   conduction_loss: number
+  conduction_walls_loss?: number
+  conduction_roof_loss?: number
+  conduction_floor_loss?: number
   ventilation_loss: number
   internal_heat_gain: number
+  pmv?: number
+  ppd?: number
+  heating_load_w?: number
+  cooling_load_w?: number
 }
 
 export interface AnalysisResponse {
@@ -252,6 +281,7 @@ export interface ScoringWeights {
   energy: number
   weight: number
   cost: number
+  fuel?: number
 }
 
 export interface OptimizeParamRanges {
@@ -282,17 +312,23 @@ export interface CandidateMetrics {
   energy_loss_wh: number
   total_weight_kg: number
   total_cost_usd: number
+  fuel_liters?: number
+  co_risk_score?: number
+  convoy_drums_saved?: number
 }
 
 export interface CandidateResult {
   candidate_id: number
   feasible: boolean
+  is_flagged?: boolean
+  is_pareto?: boolean
+  justification?: string
   rank: number | null
   geometry: { length: number; width: number; height: number; roof_pitch: number }
   material_id: number
   material_name: string
   metrics: CandidateMetrics
-  normalized_scores: { comfort: number; energy: number; weight: number; cost: number }
+  normalized_scores: { comfort?: number; energy?: number; weight?: number; cost?: number; fuel?: number }
   final_score: number | null
   thermal_summary: {
     min_indoor_temperature: number
@@ -301,6 +337,13 @@ export interface CandidateResult {
     total_conduction_loss: number
     total_ventilation_loss: number
     total_solar_gain: number
+    min_wall_temperature?: number
+    max_wall_temperature?: number
+    min_roof_temperature?: number
+    max_roof_temperature?: number
+    min_inner_surface_temp_c?: number
+    dew_point_c?: number
+    condensation_risk?: boolean
   }
   comfort: {
     score: number
@@ -334,6 +377,72 @@ export async function runOptimization(input: OptimizeRequest): Promise<OptimizeR
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }))
     throw new Error(err.detail || 'Optimization failed')
+  }
+  return res.json()
+}
+
+// --- Retrofit ------------------------------------------------------------------
+
+export interface RetrofitIntervention {
+  id: string
+  name: string
+  category: string
+  description: string
+  comfort_percentage: number
+  comfort_gain_pct: number
+  heating_kwh: number
+  energy_saved_kwh: number
+  fuel_liters: number
+  fuel_saved_liters: number
+  convoy_drums_saved: number
+  capital_cost_inr: number
+  seasonal_fuel_saved_inr: number
+  payback_years: number
+  weight_added_kg: number
+  implementation_days: number
+  co_risk_score: number
+  co_risk_level: string
+  condensation_risk: boolean
+  cost_effectiveness_score: number
+  rank: number
+}
+
+export interface RetrofitResponse {
+  baseline: {
+    name: string
+    comfort_percentage: number
+    average_indoor_temp: number
+    heating_kwh: number
+    fuel_liters: number
+    co_risk_score: number
+    co_risk_level: string
+    condensation_risk: boolean
+  }
+  interventions: RetrofitIntervention[]
+  top_recommendation: RetrofitIntervention | null
+  meta: {
+    shelter_envelope_m2: number
+    sim_hours: number
+    fuel_price_inr_per_l: number
+    methodology: string
+  }
+}
+
+export async function evaluateRetrofit(input: {
+  geometry: { length: number; width: number; height: number; roof_pitch?: number }
+  location: { latitude: number; longitude: number }
+  operating?: { target_temperature?: number; air_changes_per_hour?: number }
+  simulation_hours?: number
+  baseline_material_id?: number
+}): Promise<RetrofitResponse> {
+  const res = await fetch(`${BASE_URL}/api/retrofit/evaluate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || 'Retrofit evaluation failed')
   }
   return res.json()
 }

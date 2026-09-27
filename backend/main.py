@@ -19,7 +19,7 @@ from exceptions import ThermashellError
 from database import init_db
 from api.v1.router import api_router
 
-from app.api.routes import geometry, materials, climate, analysis, projects, optimize, validation
+from app.api.routes import geometry, materials, climate, analysis, projects, optimize, validation, retrofit
 from app.db.database import engine as classic_engine
 from app.models import db_models as classic_models
 
@@ -67,6 +67,7 @@ app.include_router(analysis.router, prefix="/api/analysis", tags=["Analysis"])
 app.include_router(projects.router, prefix="/api/projects", tags=["Projects"])
 app.include_router(optimize.router, prefix="/api/optimize", tags=["Optimization"])
 app.include_router(validation.router, prefix="/api/validation", tags=["Validation"])
+app.include_router(retrofit.router, prefix="/api/retrofit", tags=["Retrofit"])
 
 
 @app.get("/health")

@@ -98,7 +98,12 @@ def _run_single_candidate(args: Dict) -> Dict:
 
         # 5b. Fuel metric
         heating_kwh = summary.get("total_heating_load", 0.0) / 1000.0
-        kerosene_liters = calculate_bukhari_fuel(heating_kwh)["kerosene_liters"]
+        fuel_info = calculate_bukhari_fuel(
+            heating_energy_kwh=heating_kwh,
+            burn_hours=float(simulation_params.get("duration_hours", 72)),
+            ach=float(operating_conditions.get("air_changes_per_hour", 0.5)),
+        )
+        kerosene_liters = fuel_info["kerosene_liters"]
 
         # 6. Weight metric: wall + roof mass
         wall_area = geometry["wall_area"]
@@ -115,13 +120,19 @@ def _run_single_candidate(args: Dict) -> Dict:
         flags = []
         if material["id"] == 2: # PU Foam
             is_flagged = True
-            flags.append("PU Foam poses severe flammability risks.")
+            flags.append("PU Foam poses severe flammability/smoke toxicity risks.")
         if material["id"] == 6: # Concrete
             is_flagged = True
-            flags.append("Concrete is too heavy for rapid deployment.")
+            flags.append("Concrete structure is too heavy for rapid tactical deployment.")
         if total_weight > 2000:
             is_flagged = True
-            flags.append(f"Total weight ({round(total_weight)}kg) exceeds rapid-deployment limits.")
+            flags.append(f"Total weight ({round(total_weight)}kg) exceeds rapid-airlift limits.")
+        if fuel_info.get("co_risk_score", 0) >= 60.0:
+            is_flagged = True
+            flags.append(f"Elevated CO risk ({fuel_info.get('co_risk_score')}/100) due to high heater combustion load.")
+        if summary.get("condensation_risk"):
+            is_flagged = True
+            flags.append(f"Condensation risk: inner surface drops to {summary.get('min_inner_surface_temp_c')}°C (dew point {summary.get('dew_point_c')}°C).")
             
         justification = "Standard configuration."
         if is_flagged:
@@ -144,6 +155,8 @@ def _run_single_candidate(args: Dict) -> Dict:
                 "comfort_score_raw": round(comfort["score"], 2),
                 "energy_loss_wh": round(total_energy_loss, 2),
                 "fuel_liters": kerosene_liters,
+                "co_risk_score": fuel_info.get("co_risk_score", 0.0),
+                "convoy_drums_saved": fuel_info.get("convoy_drums_saved", 0.0),
                 "total_weight_kg": round(total_weight, 2),
                 "total_cost_usd": round(total_cost, 2),
             },
