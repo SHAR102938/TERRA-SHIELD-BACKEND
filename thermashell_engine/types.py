@@ -54,13 +54,28 @@ class ShelterGeometry(BaseModel):
 
     @property
     def wall_area_total(self) -> float:
-        """Total wall area in m² (4 walls, no openings deducted)."""
-        return 2 * (self.length + self.width) * self.height
+        """Total wall area in m² (4 walls, no openings deducted). Includes gable pediments."""
+        import math
+        base_area = 2 * (self.length + self.width) * self.height
+        if self.roof_type == RoofType.GABLE:
+            half_width = self.width / 2
+            roof_pitch_rad = math.radians(self.roof_pitch_deg)
+            roof_rise = half_width * math.tan(roof_pitch_rad)
+            return base_area + (self.width * roof_rise)
+        return base_area
 
     @property
     def volume(self) -> float:
-        """Internal volume in m³ (rectangular only, ignoring roof volume)."""
-        return self.length * self.width * self.height
+        """Internal volume in m³ including roof volume if gable."""
+        import math
+        base_volume = self.length * self.width * self.height
+        if self.roof_type == RoofType.GABLE:
+            half_width = self.width / 2
+            roof_pitch_rad = math.radians(self.roof_pitch_deg)
+            roof_rise = half_width * math.tan(roof_pitch_rad)
+            roof_volume = 0.5 * self.width * roof_rise * self.length
+            return base_volume + roof_volume
+        return base_volume
 
     @property
     def roof_area(self) -> float:

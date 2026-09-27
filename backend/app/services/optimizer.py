@@ -32,6 +32,7 @@ from app.services.thermal_engine import run_thermal_simulation
 from app.services.comfort_engine import calculate_comfort_score, summarize_simulation_results
 from app.services.geometry_engine import calculate_geometry
 from app.data.materials import get_all_materials, get_material_by_id
+from app.services.fuel_model import calculate_bukhari_fuel
 
 
 def _clamp_normalize(value: float, lo: float, hi: float, invert: bool = False) -> float:
@@ -93,7 +94,11 @@ def _run_single_candidate(args: Dict) -> Dict:
         feasible = comfort_pct >= FEASIBILITY_MIN_COMFORT_PERCENT
 
         # 5. Energy metric: total conduction + ventilation loss (W·h over sim period)
-        total_energy_loss = abs(summary["total_conduction_loss"]) + abs(summary["total_ventilation_loss"])
+        total_energy_loss = abs(summary.get("total_conduction_loss", 0)) + abs(summary.get("total_ventilation_loss", 0))
+
+        # 5b. Fuel metric
+        heating_kwh = summary.get("total_heating_load", 0.0) / 1000.0
+        kerosene_liters = calculate_bukhari_fuel(heating_kwh)["kerosene_liters"]
 
         # 6. Weight metric: wall + roof mass
         wall_area = geometry["wall_area"]
@@ -105,9 +110,30 @@ def _run_single_candidate(args: Dict) -> Dict:
         # 7. Cost metric: wall + roof area × cost_per_m2
         total_cost = (wall_area + roof_area) * material["cost_per_m2"]
 
+        # 8. Flag and Justification (Features D and E)
+        is_flagged = False
+        flags = []
+        if material["id"] == 2: # PU Foam
+            is_flagged = True
+            flags.append("PU Foam poses severe flammability risks.")
+        if material["id"] == 6: # Concrete
+            is_flagged = True
+            flags.append("Concrete is too heavy for rapid deployment.")
+        if total_weight > 2000:
+            is_flagged = True
+            flags.append(f"Total weight ({round(total_weight)}kg) exceeds rapid-deployment limits.")
+            
+        justification = "Standard configuration."
+        if is_flagged:
+            justification = "Requires secondary review: " + " ".join(flags)
+        elif comfort_pct > 80:
+            justification = f"Excellent thermal comfort ({round(comfort_pct)}%) with {material['name']}."
+
         return {
             "candidate_id": candidate_id,
             "feasible": feasible,
+            "is_flagged": is_flagged,
+            "justification": justification,
             "geometry": geometry_params,
             "material_id": material["id"],
             "material_name": material["name"],
@@ -117,6 +143,7 @@ def _run_single_candidate(args: Dict) -> Dict:
                 "comfort_percentage": round(comfort_pct, 2),
                 "comfort_score_raw": round(comfort["score"], 2),
                 "energy_loss_wh": round(total_energy_loss, 2),
+                "fuel_liters": kerosene_liters,
                 "total_weight_kg": round(total_weight, 2),
                 "total_cost_usd": round(total_cost, 2),
             },
@@ -202,24 +229,49 @@ def run_optimization(
     if feasible:
         # Use config ranges for normalization (not just candidate min/max,
         # to keep scores comparable across different optimization runs)
+        sim_dur = simulation_params.get("duration_hours", 72)
+        dur_factor = sim_dur / 72.0
+        energy_max = NORM_RANGES["energy_loss_max"] * dur_factor
+        fuel_max = 50.0 * dur_factor
+
         for r in feasible:
             m = r["metrics"]
             r["normalized_scores"] = {
                 "comfort": _clamp_normalize(m["comfort_percentage"], 0, 100, invert=False),
-                "energy":  _clamp_normalize(m["energy_loss_wh"],
-                                            NORM_RANGES["energy_loss_min"],
-                                            NORM_RANGES["energy_loss_max"], invert=True),
-                "weight":  _clamp_normalize(m["total_weight_kg"],
-                                            NORM_RANGES["weight_min"],
-                                            NORM_RANGES["weight_max"], invert=True),
-                "cost":    _clamp_normalize(m["total_cost_usd"],
-                                            NORM_RANGES["cost_min"],
-                                            NORM_RANGES["cost_max"], invert=True),
+                "energy":  _clamp_normalize(m["energy_loss_wh"], NORM_RANGES["energy_loss_min"], energy_max, invert=True),
+                "fuel":    _clamp_normalize(m["fuel_liters"], 0, fuel_max, invert=True),
+                "weight":  _clamp_normalize(m["total_weight_kg"], NORM_RANGES["weight_min"], NORM_RANGES["weight_max"], invert=True),
+                "cost":    _clamp_normalize(m["total_cost_usd"], NORM_RANGES["cost_min"], NORM_RANGES["cost_max"], invert=True),
             }
             ns = r["normalized_scores"]
+            
+            # Default weights doesn't have fuel, so handle gracefully
             r["final_score"] = round(
-                sum(ns[k] * norm_weights[k] for k in norm_weights), 2
+                sum(ns[k] * norm_weights.get(k, 0.0) for k in ns if k in norm_weights), 2
             )
+
+        # Calculate Pareto Frontier
+        for i, rA in enumerate(feasible):
+            is_pareto = True
+            scoresA = rA["normalized_scores"]
+            for j, rB in enumerate(feasible):
+                if i == j:
+                    continue
+                scoresB = rB["normalized_scores"]
+                
+                dominated_in_all = True
+                strictly_worse = False
+                for k in scoresA.keys():
+                    if scoresB[k] < scoresA[k]:
+                        dominated_in_all = False
+                        break
+                    if scoresB[k] > scoresA[k]:
+                        strictly_worse = True
+                        
+                if dominated_in_all and strictly_worse:
+                    is_pareto = False
+                    break
+            rA["is_pareto"] = is_pareto
 
         # Rank feasible candidates (best score = rank 1)
         feasible.sort(key=lambda r: r["final_score"], reverse=True)
@@ -229,6 +281,7 @@ def run_optimization(
     # Infeasible candidates get rank=None
     for r in infeasible:
         r["rank"] = None
+        r["is_pareto"] = False
         r["normalized_scores"] = {}
         r["final_score"] = None
 

@@ -14,6 +14,7 @@ const WIZARD_STEPS = [
 const CITY_PRESETS = [
   { name: 'Leh, Ladakh', lat: 34.15, lon: 77.58, elev: 3500, zone: 'Cold Desert', preset: 'leh' },
   { name: 'Jaisalmer, Rajasthan', lat: 26.92, lon: 70.90, elev: 225, zone: 'Hot Arid', preset: 'jaisalmer' },
+  { name: 'Tawang, Arunachal', lat: 27.58, lon: 91.86, elev: 3048, zone: 'Cold and Cloudy', preset: 'tawang' },
   { name: 'Shimla, HP', lat: 31.10, lon: 77.17, elev: 2276, zone: 'Temperate', preset: 'shimla' },
   { name: 'Chennai, TN', lat: 13.08, lon: 80.27, elev: 6, zone: 'Warm Humid', preset: 'chennai' },
   { name: 'Srinagar, J&K', lat: 34.08, lon: 74.80, elev: 1585, zone: 'Cold', preset: 'srinagar' },
@@ -51,7 +52,7 @@ export default function ScenarioBuilderPage() {
 
   const handleCitySelect = (city: typeof CITY_PRESETS[0]) => {
     updateLocation({ name: city.name, latitude: city.lat, longitude: city.lon, elevation: city.elev, climate_zone: city.zone })
-    if (city.preset === 'leh' || city.preset === 'jaisalmer') {
+    if (city.preset === 'leh' || city.preset === 'jaisalmer' || city.preset === 'tawang') {
       applyPreset(city.preset)
       setPresetBanner(`Defaults adjusted for ${city.name}'s ${city.zone.toLowerCase()} climate — edit any field to override.`)
     }
@@ -157,9 +158,18 @@ export default function ScenarioBuilderPage() {
 
           {activeWizardStep === 2 && (
             <div>
-              <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>
-                Wall assembly: {scenario.envelope.wall_layers.length} layers
-              </p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
+                  Wall assembly: {scenario.envelope.wall_layers.length} layers
+                </span>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-solar-600)' }}>
+                  <input type="checkbox" onChange={(e) => {
+                     // Trigger retrofit mode visually
+                     setPresetBanner(e.target.checked ? 'Retrofit Mode Enabled: Envelope structure locked, optimizing only for added insulation and coatings.' : null)
+                  }} />
+                  Enable Retrofit Mode
+                </label>
+              </div>
               {scenario.envelope.wall_layers.map((layer, i) => (
                 <div key={layer.id} style={{
                   padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)',

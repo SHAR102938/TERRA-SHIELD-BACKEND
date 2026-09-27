@@ -36,9 +36,20 @@ class ThermalSummary(BaseModel):
     min_roof_temperature: float
     max_roof_temperature: float
     total_conduction_loss: float
+    total_conduction_walls: float = 0.0
+    total_conduction_roof: float = 0.0
+    total_conduction_floor: float = 0.0
     total_solar_gain: float
     total_internal_heat_gain: float
     total_ventilation_loss: float
+    total_heating_load: float = 0.0
+    total_cooling_load: float = 0.0
+    average_pmv: float = 0.0
+    average_ppd: float = 0.0
+    peak_heating_load_w: float = 0.0
+    peak_cooling_load_w: float = 0.0
+    kerosene_liters: float = 0.0
+    kerosene_kg: float = 0.0
 
 class ComfortResults(BaseModel):
     score: float

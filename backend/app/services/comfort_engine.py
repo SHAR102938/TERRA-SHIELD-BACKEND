@@ -71,6 +71,10 @@ def summarize_simulation_results(time_series: list):
     """
     if not time_series:
         return {}
+        
+    timestep_hours = 1.0
+    if len(time_series) > 1:
+        timestep_hours = time_series[1]["hour"] - time_series[0]["hour"]
 
     indoor_temps = [s["indoor_temperature"] for s in time_series]
     wall_temps = [s["wall_temperature"] for s in time_series]
@@ -85,9 +89,18 @@ def summarize_simulation_results(time_series: list):
         "max_wall_temperature": max(wall_temps),
         "min_roof_temperature": min(roof_temps),
         "max_roof_temperature": max(roof_temps),
-        "total_conduction_loss": sum(s.get("conduction_loss", 0) for s in time_series),
-        "total_solar_gain": sum(s.get("solar_gain", 0) for s in time_series),
-        "total_internal_heat_gain": sum(s.get("internal_heat_gain", 0) for s in time_series),
-        "total_ventilation_loss": sum(s.get("ventilation_loss", 0) for s in time_series),
+        "total_conduction_loss": sum(s.get("conduction_loss", 0) * timestep_hours for s in time_series),
+        "total_conduction_walls": sum(s.get("conduction_walls_loss", 0) * timestep_hours for s in time_series),
+        "total_conduction_roof": sum(s.get("conduction_roof_loss", 0) * timestep_hours for s in time_series),
+        "total_conduction_floor": sum(s.get("conduction_floor_loss", 0) * timestep_hours for s in time_series),
+        "total_solar_gain": sum(s.get("solar_gain", 0) * timestep_hours for s in time_series),
+        "total_internal_heat_gain": sum(s.get("internal_heat_gain", 0) * timestep_hours for s in time_series),
+        "total_ventilation_loss": sum(s.get("ventilation_loss", 0) * timestep_hours for s in time_series),
+        "total_heating_load": sum(s.get("heating_load_w", 0) * timestep_hours for s in time_series),
+        "total_cooling_load": sum(s.get("cooling_load_w", 0) * timestep_hours for s in time_series),
+        "average_pmv": sum(s.get("pmv", 0) for s in time_series) / len(time_series) if time_series else 0.0,
+        "average_ppd": sum(s.get("ppd", 0) for s in time_series) / len(time_series) if time_series else 0.0,
+        "peak_heating_load_w": max(s.get("heating_load_w", 0) for s in time_series) if time_series else 0.0,
+        "peak_cooling_load_w": max(s.get("cooling_load_w", 0) for s in time_series) if time_series else 0.0,
     }
     return summary

@@ -57,12 +57,44 @@ for param, gen_fn in [
     ("WS10M", lambda h: round(2 + 1.5 * abs(math.sin(2 * math.pi * h / 24)), 1)),
     ("ALLSKY_SFC_SW_DWN", lambda h: max(0, round(400 * math.sin(math.pi * (h % 24 - 6) / 12), 1)) if 6 <= h % 24 <= 18 else 0.0),
 ]:
-    LEH_WINTER_DEMO["parameters"][param] = {
-        f"2024011500": None  # placeholder header
-    }
+    LEH_WINTER_DEMO["parameters"][param] = {f"2024011500": None}
     for h in range(_leh_hours):
         key = f"202401{15 + h // 24:02d}{h % 24:02d}"
         LEH_WINTER_DEMO["parameters"][param][key] = gen_fn(h)
+
+JAISALMER_SUMMER_DEMO = {
+    "source": "DEMO/FALLBACK — JAISALMER-SUMMER-72H",
+    "latitude": 26.91, "longitude": 70.9,
+    "parameters": {"T2M": {}, "RH2M": {}, "WS10M": {}, "ALLSKY_SFC_SW_DWN": {}},
+    "properties": LEH_WINTER_DEMO["properties"], "is_demo": True,
+}
+for param, gen_fn in [
+    ("T2M", lambda h: round(40 + 12 * math.sin(2 * math.pi * h / 24 - math.pi/2), 2)),
+    ("RH2M", lambda h: round(15 + 5 * math.sin(2 * math.pi * h / 24), 1)),
+    ("WS10M", lambda h: round(6 + 2 * abs(math.sin(2 * math.pi * h / 24)), 1)),
+    ("ALLSKY_SFC_SW_DWN", lambda h: max(0, round(800 * math.sin(math.pi * (h % 24 - 6) / 12), 1)) if 6 <= h % 24 <= 18 else 0.0),
+]:
+    JAISALMER_SUMMER_DEMO["parameters"][param] = {f"2024061500": None}
+    for h in range(_leh_hours):
+        key = f"202406{15 + h // 24:02d}{h % 24:02d}"
+        JAISALMER_SUMMER_DEMO["parameters"][param][key] = gen_fn(h)
+
+TAWANG_MONSOON_DEMO = {
+    "source": "DEMO/FALLBACK — TAWANG-MONSOON-72H",
+    "latitude": 27.58, "longitude": 91.86,
+    "parameters": {"T2M": {}, "RH2M": {}, "WS10M": {}, "ALLSKY_SFC_SW_DWN": {}},
+    "properties": LEH_WINTER_DEMO["properties"], "is_demo": True,
+}
+for param, gen_fn in [
+    ("T2M", lambda h: round(5 + 4 * math.sin(2 * math.pi * h / 24 - math.pi/2), 2)),
+    ("RH2M", lambda h: round(85 + 5 * math.sin(2 * math.pi * h / 24), 1)),
+    ("WS10M", lambda h: round(3 + 1 * abs(math.sin(2 * math.pi * h / 24)), 1)),
+    ("ALLSKY_SFC_SW_DWN", lambda h: max(0, round(300 * math.sin(math.pi * (h % 24 - 6) / 12), 1)) if 6 <= h % 24 <= 18 else 0.0),
+]:
+    TAWANG_MONSOON_DEMO["parameters"][param] = {f"2024071500": None}
+    for h in range(_leh_hours):
+        key = f"202407{15 + h // 24:02d}{h % 24:02d}"
+        TAWANG_MONSOON_DEMO["parameters"][param][key] = gen_fn(h)
 
 
 def _make_cache_key(lat: float, lon: float, start: str, end: str, params: str) -> str:
@@ -176,9 +208,16 @@ async def fetch_climate_data(
 
     except (httpx.HTTPError, httpx.TimeoutException, Exception) as e:
         # ── 5. Fallback to demo data ────────────────────────────────────
+        # Select closest demo
+        demo_data = LEH_WINTER_DEMO
+        if abs(latitude - 26.91) < 1.0 and abs(longitude - 70.9) < 1.0:
+            demo_data = JAISALMER_SUMMER_DEMO
+        elif abs(latitude - 27.58) < 1.0 and abs(longitude - 91.86) < 1.0:
+            demo_data = TAWANG_MONSOON_DEMO
+            
         fallback = {
-            **LEH_WINTER_DEMO,
-            "source": "DEMO/FALLBACK — LEH-WINTER-72H (NASA POWER unavailable)",
+            **demo_data,
+            "source": f"{demo_data['source']} (NASA POWER unavailable)",
             "_cache": {"hit": False, "is_fallback": True},
             "_error": str(e)[:200],
         }

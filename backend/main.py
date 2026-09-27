@@ -19,6 +19,12 @@ from exceptions import ThermashellError
 from database import init_db
 from api.v1.router import api_router
 
+from app.api.routes import geometry, materials, climate, analysis, projects, optimize, validation
+from app.db.database import engine as classic_engine
+from app.models import db_models as classic_models
+
+classic_models.Base.metadata.create_all(bind=classic_engine)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -52,6 +58,15 @@ async def thermashell_error_handler(request: Request, exc: ThermashellError):
 
 
 app.include_router(api_router, prefix="/api/v1")
+
+# Include classic routers
+app.include_router(geometry.router, prefix="/api/geometry", tags=["Geometry"])
+app.include_router(materials.router, prefix="/api/materials", tags=["Materials"])
+app.include_router(climate.router, prefix="/api/climate", tags=["Climate"])
+app.include_router(analysis.router, prefix="/api/analysis", tags=["Analysis"])
+app.include_router(projects.router, prefix="/api/projects", tags=["Projects"])
+app.include_router(optimize.router, prefix="/api/optimize", tags=["Optimization"])
+app.include_router(validation.router, prefix="/api/validation", tags=["Validation"])
 
 
 @app.get("/health")

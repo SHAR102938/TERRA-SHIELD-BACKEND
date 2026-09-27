@@ -9,6 +9,7 @@ from app.data.materials import get_material_by_id
 from app.services.climate_service import get_climate_data
 from app.services.thermal_engine import run_thermal_simulation
 from app.services.comfort_engine import calculate_comfort_score, summarize_simulation_results
+from app.services.fuel_model import calculate_bukhari_fuel
 
 router = APIRouter()
 
@@ -48,6 +49,12 @@ def run_analysis(input: AnalysisInput):
 
         # 5. Summarize Results and Calculate Comfort
         thermal_summary = summarize_simulation_results(time_series)
+        
+        # 6. Fuel Model
+        heating_kwh = (thermal_summary.get("total_heating_load", 0.0) or 0.0) / 1000.0
+        fuel_data = calculate_bukhari_fuel(heating_kwh)
+        thermal_summary.update(fuel_data)
+        
         comfort_results = calculate_comfort_score(
             time_series=time_series,
             target_temperature=input.operating_conditions.target_temperature,

@@ -23,6 +23,9 @@ def calculate_geometry(length: float, width: float, height: float, roof_pitch: f
     
     roof_rise = half_width * math.tan(roof_pitch_rad)
     total_height = height + roof_rise
+    
+    # Add gable area
+    wall_area += width * roof_rise
 
     # Volume calculation
     rectangular_volume = floor_area * height

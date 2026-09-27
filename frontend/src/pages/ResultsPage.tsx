@@ -77,10 +77,11 @@ export default function ResultsPage() {
       </div>
 
       {/* Hero metrics */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
         {[
           { label: 'Comfort Hours', value: `${comfort.comfort_percentage}`, unit: '%', color: 'var(--color-comfort-600)', icon: CheckCircle2 },
           { label: 'Heating Energy', value: `${hb.heating_energy_kwh}`, unit: 'kWh', color: 'var(--color-heat-600)', icon: Flame },
+          { label: 'Est. Kerosene', value: `${results.fuel?.kerosene_liters || 0}`, unit: 'L', color: 'var(--color-heat-500)', icon: Flame },
           { label: 'Peak Heating', value: `${results.peak_heating_load_w}`, unit: 'W', color: 'var(--color-solar-600)', icon: Thermometer },
           { label: 'PMV Mean', value: `${comfort.pmv_mean}`, unit: '', color: 'var(--color-structure-600)', icon: BarChart3 },
         ].map((m) => {

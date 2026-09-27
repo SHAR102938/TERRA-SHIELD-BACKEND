@@ -58,11 +58,15 @@ function CandidateCard({ c, isTop }: { c: CandidateResult; isTop: boolean }) {
         {/* Rank */}
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', fontWeight: 700, color: c.feasible ? 'var(--color-heat-500)' : 'var(--color-text-muted)' }}>
           {c.feasible ? `#${c.rank}` : '—'}
+          {c.is_pareto && <div style={{ fontSize: '0.6rem', color: 'var(--color-solar-600)', marginTop: '2px' }}>PARETO</div>}
         </div>
 
         {/* Material + geometry */}
         <div>
-          <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{c.material_name}</div>
+          <div style={{ fontWeight: 500, fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            {c.material_name}
+            {c.is_flagged && <AlertTriangle size={12} color="#ef4444" title="Requires review" />}
+          </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
             {(c.geometry.roof_pitch || 15)}° pitch · {((c as any).material?.thickness * 100 || (c.metrics.total_weight_kg / 100 / 1).toFixed(0))}cm
           </div>
@@ -106,9 +110,18 @@ function CandidateCard({ c, isTop }: { c: CandidateResult; isTop: boolean }) {
                 <span style={{ textTransform: 'capitalize', color: 'var(--color-text-secondary)' }}>{k}</span>
                 <span style={{ fontFamily: 'var(--font-mono)' }}>{c.normalized_scores[k]?.toFixed(1)}</span>
               </div>
-              <ScoreBar value={c.normalized_scores[k] ?? 0} color={k === 'comfort' ? '#22c55e' : k === 'energy' ? '#3b82f6' : k === 'weight' ? '#a855f7' : '#f59e0b'} />
+              <ScoreBar value={c.normalized_scores[k] ?? 0} color={k === 'comfort' ? '#22c55e' : k === 'energy' ? '#3b82f6' : k === 'weight' ? '#a855f7' : k === 'fuel' ? '#ef4444' : '#f59e0b'} />
             </div>
           ))}
+          {c.justification && (
+            <div style={{ gridColumn: '1/-1', marginTop: '0.5rem', padding: '0.5rem', background: c.is_flagged ? 'rgba(239,68,68,0.1)' : 'var(--color-bg-paper)', borderRadius: 'var(--radius-sm)', border: c.is_flagged ? '1px solid rgba(239,68,68,0.3)' : '1px solid var(--color-border)' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: c.is_flagged ? '#ef4444' : 'var(--color-text-secondary)', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                {c.is_flagged && <AlertTriangle size={12} />}
+                {c.is_flagged ? 'Flagged Review Required' : 'Material Justification'}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-primary)' }}>{c.justification}</div>
+            </div>
+          )}
           <div style={{ gridColumn: '1/-1', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
             <span>Min Indoor: <b>{c.thermal_summary?.min_indoor_temperature?.toFixed(1)}°C</b></span>
             <span>Max Indoor: <b>{c.thermal_summary?.max_indoor_temperature?.toFixed(1)}°C</b></span>

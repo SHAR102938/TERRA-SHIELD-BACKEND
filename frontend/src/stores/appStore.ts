@@ -178,6 +178,30 @@ const PRESETS: Record<string, Partial<ScenarioData>> = {
     },
     operating: { occupants: 4, metabolic_rate: 100, internal_gains: 150, target_temp: 26, comfort_band: 2.5, hvac_mode: 'cooled', ach_natural: 0.5, ach_infiltration: 0.3, heat_per_person: 50 },
   },
+  tawang: {
+    location: { name: 'Tawang, Arunachal Pradesh', latitude: 27.58, longitude: 91.86, elevation: 3048, climate_zone: 'Cold and Cloudy' },
+    geometry: { length: 6, width: 4, height: 3, roof_type: 'gable', roof_pitch: 25, orientation: 180 },
+    envelope: {
+      material_id: 3, // Polycarbonate/Lightweight for Tawang
+      wall_layers: [
+        { id: '1', name: 'Pine Wood', thickness_mm: 25, conductivity: 0.15, density: 500, specific_heat: 2500 },
+        { id: '2', name: 'Glass Wool', thickness_mm: 50, conductivity: 0.04, density: 24, specific_heat: 800 },
+        { id: '3', name: 'Pine Wood', thickness_mm: 25, conductivity: 0.15, density: 500, specific_heat: 2500 },
+      ],
+      roof_layers: [
+        { id: '4', name: 'CGI Sheet', thickness_mm: 2, conductivity: 50, density: 7800, specific_heat: 500 },
+        { id: '5', name: 'Glass Wool', thickness_mm: 100, conductivity: 0.04, density: 24, specific_heat: 800 },
+        { id: '6', name: 'Plywood', thickness_mm: 12, conductivity: 0.13, density: 550, specific_heat: 1700 },
+      ],
+      floor_layers: [
+        { id: '7', name: 'Timber Floor', thickness_mm: 50, conductivity: 0.15, density: 500, specific_heat: 2500 },
+      ],
+      windows: [
+        { face: 'south', width: 1.5, height: 1.2, count: 2, u_value: 2.5, shgc: 0.5 },
+      ],
+    },
+    operating: { occupants: 4, metabolic_rate: 100, internal_gains: 200, target_temp: 18, comfort_band: 2.5, hvac_mode: 'heated', ach_natural: 0.2, ach_infiltration: 0.2, heat_per_person: 50 },
+  },
 }
 
 export const useScenarioStore = create<ScenarioState>((set) => ({
@@ -265,10 +289,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     })
 
     if (!scenarioData) {
-      // Fallback to demo if no scenario provided (shouldn't happen in real UI)
-      setTimeout(() => {
-        set({ results: generateDemoResults(), status: 'completed', overallProgress: 100 })
-      }, 2000)
+      set({ status: 'failed' })
       return
     }
 
@@ -324,33 +345,37 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         outdoor_temp_c: res.time_series.map(ts => ts.outdoor_temperature),
         operative_temp_c: res.time_series.map(ts => ts.indoor_temperature), // simplified
         solar_ghi: res.time_series.map(ts => ts.solar_gain / (res.geometry.length * res.geometry.width)),
-        q_conduction_walls: res.time_series.map(ts => ts.conduction_loss),
-        q_conduction_roof: res.time_series.map(ts => 0), // Not separated in time_series
+        q_conduction_walls: res.time_series.map(ts => ts.conduction_walls_loss || 0),
+        q_conduction_roof: res.time_series.map(ts => ts.conduction_roof_loss || 0),
         q_solar_gain: res.time_series.map(ts => ts.solar_gain),
         q_ventilation: res.time_series.map(ts => ts.ventilation_loss),
         heat_balance: {
-          conduction_walls_kwh: res.thermal_summary.total_conduction_loss / 1000,
-          conduction_roof_kwh: 0,
-          conduction_floor_kwh: 0,
+          conduction_walls_kwh: (res.thermal_summary.total_conduction_walls || 0) / 1000,
+          conduction_roof_kwh: (res.thermal_summary.total_conduction_roof || 0) / 1000,
+          conduction_floor_kwh: (res.thermal_summary.total_conduction_floor || 0) / 1000,
           conduction_windows_kwh: 0,
           solar_gain_kwh: res.thermal_summary.total_solar_gain / 1000,
           internal_gain_kwh: res.thermal_summary.total_internal_heat_gain / 1000,
           ventilation_kwh: res.thermal_summary.total_ventilation_loss / 1000,
-          heating_energy_kwh: 0, // Simplified for now
-          cooling_energy_kwh: 0,
+          heating_energy_kwh: (res.thermal_summary.total_heating_load || 0) / 1000,
+          cooling_energy_kwh: (res.thermal_summary.total_cooling_load || 0) / 1000,
+        },
+        fuel: {
+          kerosene_liters: res.thermal_summary.kerosene_liters || 0,
+          kerosene_kg: res.thermal_summary.kerosene_kg || 0,
         },
         comfort: {
-          pmv_mean: 0,
-          ppd_mean: 0,
+          pmv_mean: res.thermal_summary.average_pmv || 0,
+          ppd_mean: res.thermal_summary.average_ppd || 0,
           comfort_hours: Math.round((res.comfort.percentage_time_in_comfort_range / 100) * 72),
           total_hours: 72,
           comfort_percentage: Math.round(res.comfort.percentage_time_in_comfort_range),
           operative_temp_mean_c: res.thermal_summary.average_indoor_temperature,
-          hours_below_comfort: 0,
+          hours_below_comfort: Math.round(((100 - res.comfort.percentage_time_in_comfort_range) / 100) * 72), // Approx
           hours_above_comfort: 0,
         },
-        peak_heating_load_w: 0,
-        peak_cooling_load_w: 0,
+        peak_heating_load_w: res.thermal_summary.peak_heating_load_w || 0,
+        peak_cooling_load_w: res.thermal_summary.peak_cooling_load_w || 0,
       }
 
       set({
@@ -375,48 +400,3 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   resetSimulation: () => set({ jobId: null, status: 'idle', stages: DEFAULT_STAGES.map((s) => ({ ...s })), overallProgress: 0, results: null }),
 }))
 
-function generateDemoResults() {
-  const hours = 72
-  const timestamps = Array.from({ length: hours }, (_, h) => `2024-01-${15 + Math.floor(h / 24)}T${String(h % 24).padStart(2, '0')}:00:00`)
-  const outdoor = timestamps.map((_, h) => parseFloat((-10 + 5 * Math.sin(2 * Math.PI * h / 24 - Math.PI / 2)).toFixed(1)))
-  const indoor = timestamps.map((_, h) => parseFloat((16 + 2.5 * Math.sin(2 * Math.PI * h / 24 - Math.PI / 3) + Math.random() * 0.5).toFixed(1)))
-  const solar = timestamps.map((_, h) => {
-    const hr = h % 24
-    return hr >= 6 && hr <= 18 ? parseFloat((400 * Math.sin(Math.PI * (hr - 6) / 12)).toFixed(0)) : 0
-  })
-
-  return {
-    timestamps,
-    indoor_temp_c: indoor,
-    outdoor_temp_c: outdoor,
-    operative_temp_c: indoor.map((t) => t - 0.5),
-    solar_ghi: solar,
-    q_conduction_walls: indoor.map((t, i) => parseFloat((2.1 * 36 * (t - outdoor[i])).toFixed(1))),
-    q_conduction_roof: indoor.map((t, i) => parseFloat((0.3 * 24 * (t - outdoor[i])).toFixed(1))),
-    q_solar_gain: solar.map((s) => parseFloat((s * 0.65 * 2.4 * 0.3).toFixed(1))),
-    q_ventilation: indoor.map((t, i) => parseFloat((0.5 * 72 * 1.225 * 1005 / 3600 * (t - outdoor[i])).toFixed(1))),
-    heat_balance: {
-      conduction_walls_kwh: 42.5,
-      conduction_roof_kwh: 8.2,
-      conduction_floor_kwh: 5.8,
-      conduction_windows_kwh: 12.3,
-      solar_gain_kwh: 18.7,
-      internal_gain_kwh: 28.8,
-      ventilation_kwh: 15.4,
-      heating_energy_kwh: 38.6,
-      cooling_energy_kwh: 0,
-    },
-    comfort: {
-      pmv_mean: -0.35,
-      ppd_mean: 12.8,
-      comfort_hours: 54,
-      total_hours: 72,
-      comfort_percentage: 75.0,
-      operative_temp_mean_c: 17.2,
-      hours_below_comfort: 14,
-      hours_above_comfort: 4,
-    },
-    peak_heating_load_w: 3200,
-    peak_cooling_load_w: 0,
-  }
-}
