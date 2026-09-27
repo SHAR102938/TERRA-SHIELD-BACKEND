@@ -1,0 +1,27 @@
+{
+  "version": "1.0",
+  "description": "TERRA-SHIELD ANSYS Benchmark Dataset Manifest",
+  "benchmarks": [
+    {
+      "case_id": "ansys_case_a",
+      "display_name": "Case A — Moderate Tau (Insulated Fabric, ACH 0.5)",
+      "source": "TEST_FIXTURE",
+      "status": "fixture_only",
+      "directory": "case_a_moderate_tau"
+    },
+    {
+      "case_id": "ansys_case_b",
+      "display_name": "Case B — High Ventilation (Rock Wool, thin, ACH 2.0)",
+      "source": "TEST_FIXTURE",
+      "status": "fixture_only",
+      "directory": "case_b_high_ventilation"
+    },
+    {
+      "case_id": "ansys_case_c",
+      "display_name": "Case C — Heavy Insulation (Fiberglass, thick, ACH 0.2)",
+      "source": "TEST_FIXTURE",
+      "status": "fixture_only",
+      "directory": "case_c_heavy_insulation"
+    }
+  ]
+}

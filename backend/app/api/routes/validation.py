@@ -11,8 +11,18 @@ from app.services.validation_engine import (
     calculate_transient_metrics,
 )
 from app.data.materials import get_material_by_id
+from app.services.ansys_benchmark_service import (
+    get_benchmark_repository,
+    DatasetSource,
+    DatasetStatus,
+)
+from app.services.ansys_validation_engine import (
+    run_benchmark_validation,
+    ValidationStatus,
+)
 
 router = APIRouter()
+
 
 class ValidationRequest(BaseModel):
     case_id: str
@@ -249,7 +259,186 @@ def run_validation(request: ValidationRequest) -> Dict[str, Any]:
             "limitations": result_1h.get("limitations"),
         }
 
+    # ─── Cases 5+: ANSYS benchmark repository datasets ──────────────────────
+    repo = get_benchmark_repository()
+    if request.case_id in repo.get_available_case_ids():
+        ds = repo.get_benchmark(request.case_id)
+        if not ds or ds.error:
+            return {"error": f"Benchmark error for {request.case_id}: {ds.error if ds else 'Not found'}"}
+
+        geo = calculate_geometry(
+            length=ds.metadata.geometry["length_m"],
+            width=ds.metadata.geometry["width_m"],
+            height=ds.metadata.geometry["height_m"],
+            roof_pitch=0.0,
+        )
+        mat = {
+            "name": ds.metadata.display_name,
+            "thermal_conductivity": ds.metadata.material["thermal_conductivity_WpmK"],
+            "density": ds.metadata.material["density_kgpm3"],
+            "specific_heat": ds.metadata.material["specific_heat_JpkgK"],
+            "thickness": ds.metadata.material["thickness_m"],
+            "solar_absorptivity": 0.0,
+            "emissivity": 0.0,
+            "cost_per_m2": 50.0,
+            "weight_per_m2": 10.0,
+        }
+        clim = {
+            "temperature": ds.metadata.boundary_conditions["outdoor_temperature_c"],
+            "solar_radiation": 0.0,
+            "wind_speed": ds.metadata.boundary_conditions.get("wind_speed_ms", 2.0),
+            "temperature_amplitude": 0.0,
+        }
+        ops = {
+            "target_temperature": 20.0,
+            "initial_indoor_temperature": ds.metadata.initial_conditions["indoor_temperature_c"],
+            "occupants": 0,
+            "heat_per_person": 0.0,
+            "air_changes_per_hour": ds.metadata.ventilation["air_changes_per_hour"],
+        }
+        dur_h = int(ds.metadata.simulation.get("duration_hours", 48))
+        sim = {"duration_hours": dur_h, "timestep_hours": 1.0}
+
+        prod_ts = run_thermal_simulation(geo, mat, clim, ops, sim)
+        prod_times_s = [p["hour"] * 3600.0 for p in prod_ts]
+        prod_temps = [p["indoor_temperature"] for p in prod_ts]
+
+        val_res = run_benchmark_validation(
+            case_id=request.case_id,
+            thermashell_timestamps_s=prod_times_s,
+            thermashell_temperatures_c=prod_temps,
+            reference_timestamps_s=ds.timestamps_s,
+            reference_temperatures_c=ds.temperatures_c,
+            source=ds.source.value,
+        )
+
+        m = val_res.metrics
+        return {
+            "case_id": request.case_id,
+            "description": ds.metadata.display_name,
+            "reference_source": f"{ds.metadata.software} ({ds.source.value})",
+            "production_result": {"time_series": val_res.thermashell_temperatures_c},
+            "reference_result": {
+                "time_series": val_res.reference_temperatures_c,
+                "T_ss": ds.metadata.derived_rc_params.get("T_ss_c", clim["temperature"]),
+            },
+            "comparison": {
+                "mae": m.mae_c if m else 0.0,
+                "rmse": m.rmse_c if m else 0.0,
+                "max_absolute_error": m.max_absolute_error_c if m else 0.0,
+                "mean_temperature_difference": m.mean_bias_error_c if m else 0.0,
+                "relative_error_percent": m.normalized_rmse_percent if (m and m.normalized_rmse_percent is not None) else 0.0,
+                "final_temperature_error": round(abs(val_res.thermashell_temperatures_c[-1] - val_res.reference_temperatures_c[-1]), 4) if val_res.thermashell_temperatures_c else 0.0,
+            },
+            "advanced_metrics": {
+                "pearson_r": m.pearson_r if m else None,
+                "r_squared": m.r_squared if m else None,
+                "normalized_rmse_percent": m.normalized_rmse_percent if m else None,
+                "peak_temperature_error_c": m.peak_temperature_error_c if m else None,
+            },
+            "rc_params": {
+                "R_eff_KperW": ds.metadata.derived_rc_params.get("R_eff_KperW", 0.0),
+                "C_air_JperK": ds.metadata.derived_rc_params.get("C_air_JperK", 0.0),
+                "tau_seconds": ds.metadata.derived_rc_params.get("tau_seconds", 0.0),
+                "tau_hours": ds.metadata.derived_rc_params.get("tau_hours", 0.0),
+                "T_ss": ds.metadata.derived_rc_params.get("T_ss_c", clim["temperature"]),
+                "UA_shell_WperK": 0.0,
+                "UA_vent_WperK": 0.0,
+            },
+            "status": val_res.status.value.upper(),
+            "source_type": ds.source.value,
+            "is_real_ansys": ds.source in (DatasetSource.ANSYS_FLUENT, DatasetSource.ANSYS_MECHANICAL),
+            "provenance": ds.metadata.provenance,
+            "limitations": [
+                "Dataset source is TEST_FIXTURE (analytical RC solution), not real ANSYS FEA export." if ds.source == DatasetSource.TEST_FIXTURE else "Real ANSYS simulation comparison.",
+                "Status is strictly marked as FIXTURE_ONLY — never claims verified without genuine ANSYS data." if ds.source == DatasetSource.TEST_FIXTURE else "ANSYS verification criteria applied.",
+            ],
+        }
+
     else:
-        return {"error": f"Unknown case_id: {request.case_id!r}. "
-                         "Valid: analytical_steady_state, transient_rc_A, transient_rc_B, transient_rc_C"}
+        valid_cases = ["analytical_steady_state", "transient_rc_A", "transient_rc_B", "transient_rc_C"] + repo.get_available_case_ids()
+        return {"error": f"Unknown case_id: {request.case_id!r}. Valid: {', '.join(valid_cases)}"}
+
+
+@router.get("/benchmarks")
+def list_benchmarks() -> Dict[str, Any]:
+    """List all available validation benchmarks (analytical and ANSYS datasets)."""
+    analytical_cases = [
+        {
+            "case_id": "analytical_steady_state",
+            "display_name": "Analytical Steady-State Heat Balance",
+            "source": "ANALYTICAL_REFERENCE",
+            "status": "available",
+            "type": "steady",
+            "is_real_ansys": False,
+            "description": "Steady-state heat loss balance against outdoor cold reservoir.",
+        },
+        {
+            "case_id": "transient_rc_A",
+            "display_name": "Transient RC — Case A (Moderate tau)",
+            "source": "ANALYTICAL_REFERENCE",
+            "status": "available",
+            "type": "transient",
+            "is_real_ansys": False,
+            "description": "Transient 1st-order analytical cooling curve with moderate time constant.",
+        },
+        {
+            "case_id": "transient_rc_B",
+            "display_name": "Transient RC — Case B (Short tau)",
+            "source": "ANALYTICAL_REFERENCE",
+            "status": "available",
+            "type": "transient",
+            "is_real_ansys": False,
+            "description": "Transient analytical cooling curve with high ventilation thin shell.",
+        },
+        {
+            "case_id": "transient_rc_C",
+            "display_name": "Transient RC — Case C (Long tau)",
+            "source": "ANALYTICAL_REFERENCE",
+            "status": "available",
+            "type": "transient",
+            "is_real_ansys": False,
+            "description": "Transient analytical cooling curve with thick insulation.",
+        },
+    ]
+
+    repo = get_benchmark_repository()
+    ansys_cases = []
+    for b in repo.list_benchmarks():
+        ds = repo.get_benchmark(b["case_id"])
+        ansys_cases.append({
+            "case_id": b["case_id"],
+            "display_name": b["display_name"],
+            "source": b["source"],
+            "status": b["status"],
+            "type": "ansys",
+            "is_real_ansys": ds.source in (DatasetSource.ANSYS_FLUENT, DatasetSource.ANSYS_MECHANICAL) if ds else False,
+            "n_points": b["n_points"],
+            "duration_hours": round(b["duration_s"] / 3600.0, 1),
+            "description": ds.metadata.provenance.get("description", "") if ds else "",
+        })
+
+    return {
+        "analytical": analytical_cases,
+        "ansys": ansys_cases,
+        "has_real_ansys_data": repo.has_real_ansys_data,
+    }
+
+
+@router.get("/ansys-status")
+def get_ansys_status() -> Dict[str, Any]:
+    """Return explicit provenance and readiness status of the ANSYS validation subsystem."""
+    repo = get_benchmark_repository()
+    return {
+        "ansys_integrated": True,
+        "has_real_ansys_data": repo.has_real_ansys_data,
+        "datasets_available": repo.list_benchmarks(),
+        "status_notice": (
+            "Genuine ANSYS FEA/CFD data loaded and ready for formal verification."
+            if repo.has_real_ansys_data
+            else "Currently using traceable analytical RC test fixtures. Real ANSYS Fluent / Mechanical exports can be placed in backend/app/data/ansys_benchmarks/ to enable formal ANSYS verification."
+        ),
+        "guidelines": "Refer to backend/app/data/ansys_benchmarks/README.md for directory layout and CSV column conventions."
+    }
+
 

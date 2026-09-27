@@ -34,3 +34,15 @@ class MaterialDB(Base):
     cost_per_m2 = Column(Float)
     weight_per_m2 = Column(Float)
     thickness = Column(Float)
+
+class SimulationRunDB(Base):
+    __tablename__ = "simulation_runs"
+
+    id = Column(String, primary_key=True, index=True)
+    project_id = Column(String, nullable=True, index=True)
+    scenario_id = Column(String, nullable=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    inputs_json = Column(String, nullable=False)
+    summary_json = Column(String, nullable=False)
+    timeseries_json = Column(String, nullable=True)
+

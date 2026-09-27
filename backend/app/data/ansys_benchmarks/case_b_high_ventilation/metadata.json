@@ -1,0 +1,56 @@
+{
+  "case_id": "ansys_case_b",
+  "display_name": "Case B \u2014 High Ventilation",
+  "source": "TEST_FIXTURE",
+  "source_type": "analytical_rc_1st_order",
+  "software": "Python analytical solver (generate_fixtures.py)",
+  "software_version": "1.0",
+  "geometry": {
+    "length_m": 5.0,
+    "width_m": 4.0,
+    "height_m": 3.0,
+    "wall_area_m2": 54.0,
+    "roof_area_m2": 20.0,
+    "volume_m3": 60.0
+  },
+  "material": {
+    "thermal_conductivity_WpmK": 0.038,
+    "thickness_m": 0.05,
+    "density_kgpm3": 100,
+    "specific_heat_JpkgK": 840
+  },
+  "boundary_conditions": {
+    "outdoor_temperature_c": 10.0,
+    "wind_speed_ms": 2.0,
+    "solar_radiation_Wpm2": 0.0,
+    "emissivity": 0.0,
+    "solar_absorptivity": 0.0
+  },
+  "ventilation": {
+    "air_changes_per_hour": 2.0
+  },
+  "initial_conditions": {
+    "indoor_temperature_c": 30.0,
+    "internal_heat_gain_W": 0.0
+  },
+  "simulation": {
+    "duration_hours": 24,
+    "duration_s": 86400,
+    "timestep_s": 3600
+  },
+  "derived_rc_params": {
+    "R_eff_KperW": 0.01060249,
+    "C_air_JperK": 73867.5,
+    "tau_seconds": 783.18,
+    "tau_hours": 0.2175,
+    "T_ss_c": 10.0
+  },
+  "temperature_variable": "indoor_air_temperature",
+  "temperature_unit": "degC",
+  "provenance": {
+    "dataset_status": "fixture_only",
+    "description": "Test fixture generated from analytical 1st-order RC solution. NOT real ANSYS data. Replace with genuine ANSYS export for production validation.",
+    "generated_by": "generate_fixtures.py",
+    "reference": "Incropera et al., Fundamentals of Heat and Mass Transfer, 7th ed., Section 5.3 (Lumped Capacitance Method)"
+  }
+}

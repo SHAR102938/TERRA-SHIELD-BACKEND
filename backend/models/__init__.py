@@ -18,3 +18,16 @@ class ClimateSnapshot(Base):
     source = Column(String(50), default="nasa_power")
     is_fallback = Column(Integer, default=0)  # SQLite boolean
     fetched_at = Column(DateTime, default=datetime.utcnow)
+
+
+class SimulationRecord(Base):
+    __tablename__ = "simulation_records"
+
+    id = Column(String, primary_key=True)
+    scenario_id = Column(String, nullable=True, index=True)
+    project_id = Column(String, nullable=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    inputs_json = Column(Text, nullable=False)
+    summary_json = Column(Text, nullable=False)
+    timeseries_json = Column(Text, nullable=True)
+
