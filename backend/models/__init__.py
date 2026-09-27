@@ -1,6 +1,6 @@
 """SQLAlchemy model for climate data cache."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, Float, Text, DateTime
 from database import Base
 
@@ -17,7 +17,7 @@ class ClimateSnapshot(Base):
     data_json = Column(Text, nullable=False)
     source = Column(String(50), default="nasa_power")
     is_fallback = Column(Integer, default=0)  # SQLite boolean
-    fetched_at = Column(DateTime, default=datetime.utcnow)
+    fetched_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class SimulationRecord(Base):
@@ -26,7 +26,7 @@ class SimulationRecord(Base):
     id = Column(String, primary_key=True)
     scenario_id = Column(String, nullable=True, index=True)
     project_id = Column(String, nullable=True, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     inputs_json = Column(Text, nullable=False)
     summary_json = Column(Text, nullable=False)
     timeseries_json = Column(Text, nullable=True)

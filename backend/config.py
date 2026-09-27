@@ -1,6 +1,6 @@
 """THERMASHELL Backend — Configuration via pydantic-settings."""
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -22,9 +22,7 @@ class Settings(BaseSettings):
     MAX_SIMULATION_HOURS: int = 8760  # 1 year
     SIMULATION_TIMEOUT_S: int = 300
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 
 settings = Settings()

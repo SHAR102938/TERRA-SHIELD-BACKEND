@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime
-from datetime import datetime
+from datetime import datetime, timezone
 from app.db.database import Base
 
 class Project(Base):
@@ -13,8 +13,8 @@ class Project(Base):
     latitude = Column(Float)
     longitude = Column(Float)
     elevation = Column(Float, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     status = Column(String, default="draft")
     project_type = Column(String, default="new-build") # 'new-build' or 'retrofit'
     
@@ -41,7 +41,7 @@ class SimulationRunDB(Base):
     id = Column(String, primary_key=True, index=True)
     project_id = Column(String, nullable=True, index=True)
     scenario_id = Column(String, nullable=True, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     inputs_json = Column(String, nullable=False)
     summary_json = Column(String, nullable=False)
     timeseries_json = Column(String, nullable=True)
